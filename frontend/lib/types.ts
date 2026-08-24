@@ -14,6 +14,25 @@ export interface TechItem {
   alternatives: string[];
 }
 
+export interface TechStackItem {
+  name: string;
+  description: string;
+  reason: string;
+  alternatives: string[];
+}
+
+export interface TechStack {
+  _id: string;
+  projectId: string;
+  frontend: TechStackItem[];
+  backend: TechStackItem[];
+  database: TechStackItem[];
+  authentication: TechStackItem[];
+  otherServices: TechStackItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type TaskStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Blocked';
 export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type TaskDifficulty = 'Easy' | 'Medium' | 'Hard' | 'Expert';
@@ -96,7 +115,7 @@ export interface Project {
   status: 'Planning' | 'In Progress' | 'Completed' | 'On Hold';
   progress: number;
   currentPhase: string;
-  techStack: TechItem[];
+  techStack: TechStack;
   analysis: ProjectAnalysis;
   phases: RoadmapPhase[];
   tasks: Task[];
@@ -105,6 +124,32 @@ export interface Project {
   chat: ChatMessage[];
   createdAt: string;
   updatedAt: string;
+}
+
+// Helper to convert TechStack to flat TechItem[] for display
+export function techStackToItems(techStack: TechStack): TechItem[] {
+  const items: TechItem[] = [];
+  const categories: { key: keyof TechStack; label: TechCategory }[] = [
+    { key: 'frontend', label: 'Frontend' },
+    { key: 'backend', label: 'Backend' },
+    { key: 'database', label: 'Database' },
+    { key: 'authentication', label: 'Other Services' },
+    { key: 'otherServices', label: 'Other Services' },
+  ];
+
+  categories.forEach(({ key, label }) => {
+    const categoryItems = techStack[key] as TechStackItem[] | undefined;
+    categoryItems?.forEach((item) => {
+      items.push({
+        id: `${key}-${item.name}`,
+        category: label,
+        technology: item.name,
+        reason: item.reason,
+        alternatives: item.alternatives || [],
+      });
+    });
+  });
+  return items;
 }
 
 export interface ApiProject {

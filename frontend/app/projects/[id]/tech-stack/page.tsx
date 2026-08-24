@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { notFound } from 'next/navigation';
 import {
   Layers,
@@ -9,6 +9,8 @@ import {
   Check,
   RefreshCw,
   Lightbulb,
+  Zap,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,9 +31,10 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useStore } from '@/lib/store';
-import { getTechOptions, findTech } from '@/lib/mock-data';
+import { getTechOptions } from '@/lib/mock-data';
 import type { TechCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const CATEGORY_ICONS: Record<string, string> = {
   Frontend: '🎨',
@@ -51,6 +54,33 @@ const ALL_CATEGORIES: TechCategory[] = [
   'Mobile',
 ];
 
+// Convert backend TechStack format to frontend TechItem[] for display
+function convertTechStack(techStack: any): any[] {
+  if (!techStack) return [];
+  const items: any[] = [];
+  const categories: { key: string; label: TechCategory }[] = [
+    { key: 'frontend', label: 'Frontend' },
+    { key: 'backend', label: 'Backend' },
+    { key: 'database', label: 'Database' },
+    { key: 'authentication', label: 'Other Services' },
+    { key: 'otherServices', label: 'Other Services' },
+  ];
+
+  categories.forEach(({ key, label }) => {
+    const categoryItems = techStack[key] || [];
+    categoryItems.forEach((item: any) => {
+      items.push({
+        id: `${key}-${item.name}`,
+        category: label,
+        technology: item.name,
+        reason: item.reason,
+        alternatives: item.alternatives || [],
+      });
+    });
+  });
+  return items;
+}
+
 export default function TechStackPage({
   params,
 }: {
@@ -58,6 +88,8 @@ export default function TechStackPage({
 }) {
   const { id } = params;
   const project = useStore((s) => s.projects.find((p) => p.id === id));
+  const fetchTechStack = useStore((s) => s.fetchTechStack);
+  const generateTechStack = useStore((s) => s.generateTechStack);
   const replaceTech = useStore((s) => s.replaceTech);
   const addTech = useStore((s) => s.addTech);
   const removeTech = useStore((s) => s.removeTech);
@@ -67,8 +99,29 @@ export default function TechStackPage({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newCategory, setNewCategory] = useState<TechCategory>('Frontend');
   const [newTech, setNewTech] = useState('');
+  const [generating, setGenerating] = useState(false);
 
   if (!project) return notFound();
+
+  const techStack = project.techStack as any;
+  const hasTechStack = techStack && (techStack.frontend?.length || techStack.backend?.length || techStack.database?.length || techStack.authentication?.length || techStack.otherServices?.length);
+
+  useEffect(() => {
+    if (!hasTechStack) {
+      fetchTechStack(id);
+    }
+  }, [id, hasTechStack, fetchTechStack]);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      await generateTechStack(id);
+    } catch (error) {
+      console.error('Failed to generate tech stack:', error);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleReplace = () => {
     if (!replacingId || !replaceWith) return;
@@ -84,15 +137,85 @@ export default function TechStackPage({
     setNewTech('');
   };
 
+  const displayTechStack = hasTechStack ? convertTechStack(techStack) : [];
+
   const groupedByCategory = ALL_CATEGORIES.map((cat) => ({
     category: cat,
-    items: project.techStack.filter((t) => t.category === cat),
+    items: displayTechStack.filter((t) => t.category === cat),
   })).filter((g) => g.items.length > 0);
 
-  const currentReplaceTech = project.techStack.find((t) => t.id === replacingId);
+  const currentReplaceTech = displayTechStack.find((t) => t.id === replacingId);
   const replaceOptions = currentReplaceTech
     ? getTechOptions(currentReplaceTech.category)
     : [];
+
+  if (!hasTechStack && !generating) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-5 w-5 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">Tech Stack</h1>
+          </div>
+          <Button onClick={handleGenerate} disabled={generating}>
+            <Zap className="mr-2 h-4 w-4" />
+            {generating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              'Generate Tech Stack'
+            )}
+          </Button>
+        </div>
+
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Layers className="mb-4 h-12 w-12 text-muted-foreground/50" />
+            <h3 className="mb-2 font-semibold">No tech stack generated yet</h3>
+            <p className="mb-6 text-sm text-muted-foreground max-w-md">
+              Generate an AI-recommended technology stack based on your project details
+              and analysis.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (generating) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-5 w-5 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">Tech Stack</h1>
+          </div>
+          <Button variant="outline" size="sm" disabled>
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            Generating...
+          </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-3">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="mt-1 h-4 w-1/2" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Skeleton className="h-6 w-full" />
+                <Skeleton className="h-6 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6">
@@ -101,10 +224,16 @@ export default function TechStackPage({
           <Layers className="h-5 w-5 text-primary" />
           <h1 className="text-2xl font-bold tracking-tight">Tech Stack</h1>
         </div>
-        <Button size="sm" onClick={() => setAddDialogOpen(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Add Technology
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Regenerate
+          </Button>
+          <Button size="sm" onClick={() => setAddDialogOpen(true)} disabled={generating}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Add Technology
+          </Button>
+        </div>
       </div>
 
       {groupedByCategory.map(({ category, items }) => (
@@ -140,7 +269,7 @@ export default function TechStackPage({
                       Alternatives
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {tech.alternatives.map((alt) => (
+                      {tech.alternatives.map((alt: string) => (
                         <button
                           key={alt}
                           onClick={() => {
@@ -248,7 +377,7 @@ export default function TechStackPage({
                   <SelectValue placeholder="Select a technology" />
                 </SelectTrigger>
                 <SelectContent>
-                  {getTechOptions(newCategory).map((opt) => (
+                  {getTechOptions(newCategory).map((opt: string) => (
                     <SelectItem key={opt} value={opt}>
                       {opt}
                     </SelectItem>

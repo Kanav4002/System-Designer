@@ -21,6 +21,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useStore } from '@/lib/store';
+import { techStackToItems } from '@/lib/types';
 
 export default function SettingsPage({
   params,
@@ -114,7 +115,7 @@ export default function SettingsPage({
               <p className="text-xs text-muted-foreground">Tasks</p>
             </div>
             <div>
-              <p className="text-2xl font-bold">{project.techStack.length}</p>
+              <p className="text-2xl font-bold">{techStackToItems(project.techStack).length}</p>
               <p className="text-xs text-muted-foreground">Technologies</p>
             </div>
             <div>

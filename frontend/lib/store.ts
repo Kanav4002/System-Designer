@@ -5,11 +5,13 @@ import type {
   Task,
   TechItem,
   TechCategory,
+  TechStack,
   ArchNodeData,
   ChatMessage,
   TaskStatus,
 } from './types';
-import { projectApi, analysisApi } from './api';
+import { techStackToItems } from './types';
+import { projectApi, analysisApi, techStackApi } from './api';
 
 interface AppState {
   projects: Project[];
@@ -29,6 +31,8 @@ interface AppState {
   getProject: (id: string) => Project | undefined;
   fetchAnalysis: (projectId: string) => Promise<void>;
   generateAnalysis: (projectId: string) => Promise<void>;
+  fetchTechStack: (projectId: string) => Promise<void>;
+  generateTechStack: (projectId: string) => Promise<void>;
 
   updateTaskStatus: (projectId: string, taskId: string, status: TaskStatus) => void;
   updateTask: (projectId: string, taskId: string, updates: Partial<Task>) => void;
@@ -92,7 +96,27 @@ function mapApiProject(apiProject: any): Project {
     status: apiProject.status,
     progress: apiProject.progress,
     currentPhase: 'Planning',
-    techStack: [],
+    techStack: apiProject.techStackId ? {
+      _id: apiProject.techStackId,
+      projectId: apiProject._id,
+      frontend: [],
+      backend: [],
+      database: [],
+      authentication: [],
+      otherServices: [],
+      createdAt: apiProject.createdAt,
+      updatedAt: apiProject.updatedAt,
+    } : {
+      _id: '',
+      projectId: apiProject._id,
+      frontend: [],
+      backend: [],
+      database: [],
+      authentication: [],
+      otherServices: [],
+      createdAt: apiProject.createdAt,
+      updatedAt: apiProject.updatedAt,
+    },
     analysis: {
       summary: '',
       mainFeatures: [],
@@ -189,6 +213,38 @@ export const useStore = create<AppState>()(
           }));
         } catch (error) {
           console.error('Failed to generate analysis:', error);
+          throw error;
+        }
+      },
+
+      fetchTechStack: async (projectId) => {
+        try {
+          const response = await techStackApi.get(projectId);
+          const techStack = response.techStack;
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, techStack } : p
+            ),
+          }));
+        } catch (error: any) {
+          if (error.message?.includes('404') || error.message?.includes('not found')) {
+            return;
+          }
+          console.error('Failed to fetch tech stack:', error);
+        }
+      },
+
+      generateTechStack: async (projectId) => {
+        try {
+          const response = await techStackApi.generate(projectId);
+          const techStack = response.techStack;
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, techStack } : p
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to generate tech stack:', error);
           throw error;
         }
       },
@@ -290,15 +346,22 @@ export const useStore = create<AppState>()(
         set((state) => ({
           projects: state.projects.map((p) => {
             if (p.id !== projectId) return p;
-            const tech = p.techStack.find((t) => t.id === techId);
+            const techStack = p.techStack as any;
+            const tech = techStackToItems(p.techStack).find((t) => t.id === techId);
             if (!tech) return p;
             const newTech = findTech(tech.category, newTechnology);
             if (!newTech) return p;
-            return {
-              ...p,
-              techStack: p.techStack.map((t) => (t.id === techId ? newTech : t)),
-              updatedAt: new Date().toISOString(),
-            };
+            const key = tech.category.toLowerCase() as keyof typeof techStack;
+            if (key === 'other services') {
+              techStack.otherServices = techStack.otherServices.map((t: any) =>
+                t.name === tech.technology ? newTech : t
+              );
+            } else {
+              techStack[key] = techStack[key].map((t: any) =>
+                t.name === tech.technology ? newTech : t
+              );
+            }
+            return { ...p, techStack, updatedAt: new Date().toISOString() };
           }),
         }));
       },
@@ -307,17 +370,39 @@ export const useStore = create<AppState>()(
         const newTech = findTech(category, technology);
         if (!newTech) return;
         set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id !== projectId ? p : { ...p, techStack: [...p.techStack, newTech], updatedAt: new Date().toISOString() }
-          ),
+          projects: state.projects.map((p) => {
+            const techStack = p.techStack as any;
+            const key = category.toLowerCase() as keyof typeof techStack;
+            const techItem = {
+              name: newTech.technology,
+              description: newTech.reason,
+              reason: newTech.reason,
+              alternatives: newTech.alternatives,
+            };
+            if (key === 'other services') {
+              techStack.otherServices = [...techStack.otherServices, techItem];
+            } else {
+              techStack[key] = [...techStack[key], techItem];
+            }
+            return { ...p, techStack, updatedAt: new Date().toISOString() };
+          }),
         }));
       },
 
       removeTech: (projectId, techId) => {
         set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id !== projectId ? p : { ...p, techStack: p.techStack.filter((t) => t.id !== techId), updatedAt: new Date().toISOString() }
-          ),
+          projects: state.projects.map((p) => {
+            const techStack = p.techStack as any;
+            const tech = techStackToItems(p.techStack).find((t) => t.id === techId);
+            if (!tech) return p;
+            const key = tech.category.toLowerCase() as keyof typeof techStack;
+            if (key === 'other services') {
+              techStack.otherServices = techStack.otherServices.filter((t: any) => t.name !== tech.technology);
+            } else {
+              techStack[key] = techStack[key].filter((t: any) => t.name !== tech.technology);
+            }
+            return { ...p, techStack, updatedAt: new Date().toISOString() };
+          }),
         }));
       },
 

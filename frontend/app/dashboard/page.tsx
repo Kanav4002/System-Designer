@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useStore, getProjectStats } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { techStackToItems } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -263,14 +264,14 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex flex-wrap gap-1.5">
-                      {project.techStack.slice(0, 4).map((tech) => (
+                      {techStackToItems(project.techStack).slice(0, 4).map((tech) => (
                         <Badge key={tech.id} variant="outline" className="text-[10px] font-normal">
                           {tech.technology}
                         </Badge>
                       ))}
-                      {project.techStack.length > 4 && (
+                      {techStackToItems(project.techStack).length > 4 && (
                         <Badge variant="outline" className="text-[10px] font-normal">
-                          +{project.techStack.length - 4}
+                          +{techStackToItems(project.techStack).length - 4}
                         </Badge>
                       )}
                     </div>

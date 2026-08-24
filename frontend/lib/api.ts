@@ -61,6 +61,22 @@ export const analysisApi = {
     fetchWithAuth<{ success: boolean; analysis: any }>(`/api/projects/${projectId}/analysis`),
 };
 
+export const techStackApi = {
+  generate: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; techStack: any }>(`/api/projects/${projectId}/tech-stack/generate`, {
+      method: 'POST',
+    }),
+
+  get: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; techStack: any }>(`/api/projects/${projectId}/tech-stack`),
+
+  update: (projectId: string, data: { frontend?: any[]; backend?: any[]; database?: any[]; authentication?: any[]; otherServices?: any[] }) =>
+    fetchWithAuth<{ success: boolean; techStack: any }>(`/api/projects/${projectId}/tech-stack`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
+
 export const authApi = {
   register: (data: { name: string; email: string; password: string }) =>
     fetchWithAuth<{ success: boolean; token: string; user: any }>('/api/auth/register', {

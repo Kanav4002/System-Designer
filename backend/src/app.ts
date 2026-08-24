@@ -8,6 +8,7 @@ import { env } from "./config/env.js";
 import authRouter from "./routes/auth.routes.js";
 import projectRouter from "./routes/project.routes.js";
 import analysisRouter from "./routes/analysis.routes.js";
+import techStackRouter from "./routes/techStack.routes.js";
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use("/api", apiLimiter);
 app.use("/api/auth", authRouter);
 app.use("/api/projects", projectRouter);
 app.use("/api/projects/:id/analysis", analysisRouter);
+app.use("/api/projects/:id/tech-stack", techStackRouter);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({

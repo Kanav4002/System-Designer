@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useStore, getPhaseProgress } from '@/lib/store';
+import { techStackToItems } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const QUICK_LINKS = [
@@ -184,7 +185,7 @@ export default function OverviewPage({
       <div>
         <h2 className="mb-3 text-lg font-semibold">Technology Stack</h2>
         <div className="flex flex-wrap gap-2">
-          {project.techStack.map((tech) => (
+          {techStackToItems(project.techStack).map((tech) => (
             <Badge key={tech.id} variant="outline" className="gap-1.5 py-1.5">
               <span className="text-muted-foreground">{tech.category}:</span>
               <span className="font-medium">{tech.technology}</span>

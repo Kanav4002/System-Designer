@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useStore } from '@/lib/store';
 import type { Project } from '@/lib/types';
+import { techStackToItems } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const SUGGESTED_QUESTIONS = [
@@ -40,7 +41,7 @@ function generateAIResponse(question: string, project: Project): string {
   }
 
   if (lower.includes('redis') || lower.includes('cache')) {
-    const redis = project.techStack.find((t) => t.technology === 'Redis');
+    const redis = techStackToItems(project.techStack).find((t) => t.technology === 'Redis');
     if (redis) {
       return `**Why Redis?**\n\n${redis.reason}\n\nRedis serves as an in-memory data store in your architecture. It's particularly valuable for this project because:\n\n• **Session management** — fast token validation\n• **Caching hot queries** — reduces database load\n• **Rate limiting** — protects your API from abuse\n• **Real-time features** — pub/sub for live updates\n\nAlternatives include ${redis.alternatives.join(', ')}, but Redis is the most battle-tested choice.`;
     }
@@ -52,12 +53,12 @@ function generateAIResponse(question: string, project: Project): string {
   }
 
   if (lower.includes('database') || lower.includes('improve')) {
-    return `Here are some ways to improve your database design:\n\n• **Add indexes** on frequently queried columns (foreign keys, search fields)\n• **Use connection pooling** to handle concurrent requests efficiently\n• **Implement soft deletes** instead of hard deletes for audit trails\n• **Add database constraints** (unique, not null, check) at the schema level\n• **Consider read replicas** if you expect heavy read traffic\n• **Set up automated backups** with point-in-time recovery\n\nYour current database choice (${project.techStack.find((t) => t.category === 'Database')?.technology || 'PostgreSQL'}) supports all of these patterns well.`;
+    return `Here are some ways to improve your database design:\n\n• **Add indexes** on frequently queried columns (foreign keys, search fields)\n• **Use connection pooling** to handle concurrent requests efficiently\n• **Implement soft deletes** instead of hard deletes for audit trails\n• **Add database constraints** (unique, not null, check) at the schema level\n• **Consider read replicas** if you expect heavy read traffic\n• **Set up automated backups** with point-in-time recovery\n\nYour current database choice (${techStackToItems(project.techStack).find((t) => t.category === 'Database')?.technology || 'PostgreSQL'}) supports all of these patterns well.`;
   }
 
   if (lower.includes('missing') || lower.includes('what am i')) {
-    const hasAuth = project.techStack.some((t) => t.technology.toLowerCase().includes('auth') || project.archNodes.some((n) => n.type === 'Auth Service'));
-    const hasPayment = project.techStack.some((t) => t.technology === 'Stripe');
+    const hasAuth = techStackToItems(project.techStack).some((t) => t.technology.toLowerCase().includes('auth') || project.archNodes.some((n) => n.type === 'Auth Service'));
+    const hasPayment = techStackToItems(project.techStack).some((t) => t.technology === 'Stripe');
     const hasMonitoring = project.tasks.some((t) => t.title.toLowerCase().includes('monitor'));
     const missing: string[] = [];
     if (!hasAuth) missing.push('Authentication service');

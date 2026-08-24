@@ -516,6 +516,52 @@ export function generateProject(opts: {
   const completedTasks = tasks.filter((t) => t.status === 'Completed').length;
   const progress = Math.round((completedTasks / tasks.length) * 100);
 
+  // Convert old TechItem[] format to new TechStack object format
+  const convertToTechStack = (items: TechItem[]) => {
+    const result = {
+      _id: uid('tech'),
+      projectId: id,
+      frontend: [] as any[],
+      backend: [] as any[],
+      database: [] as any[],
+      authentication: [] as any[],
+      otherServices: [] as any[],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    items.forEach((item) => {
+      const tech = {
+        name: item.technology,
+        description: item.reason,
+        reason: item.reason,
+        alternatives: item.alternatives,
+      };
+      switch (item.category) {
+        case 'Frontend':
+          result.frontend.push(tech);
+          break;
+        case 'Backend':
+          result.backend.push(tech);
+          break;
+        case 'Database':
+          result.database.push(tech);
+          break;
+        case 'Other Services':
+        case 'DevOps':
+          result.otherServices.push(tech);
+          break;
+        case 'Mobile':
+          result.frontend.push(tech);
+          break;
+      }
+    });
+
+    return result;
+  };
+
+  const techStackObj = convertToTechStack(techStack);
+
   return {
     id,
     _id: id,
@@ -527,7 +573,7 @@ export function generateProject(opts: {
     status: progress >= 100 ? 'Completed' : progress > 0 ? 'In Progress' : 'Planning',
     progress,
     currentPhase: firstIncompletePhase || phases[0].title,
-    techStack,
+    techStack: techStackObj,
     analysis,
     phases,
     tasks,
