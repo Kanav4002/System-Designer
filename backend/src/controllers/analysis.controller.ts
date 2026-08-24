@@ -72,7 +72,7 @@ export const generateAnalysis = async (
       analysis,
     });
   } catch (error: any) {
-    console.error("Generate analysis error:", error);
+    console.error("Generate analysis error:", error.message, error.stack);
 
     if (error.message.includes("invalid JSON") || error.message.includes("validation failed")) {
       res.status(502).json({
@@ -84,7 +84,7 @@ export const generateAnalysis = async (
 
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message || "Internal server error",
     });
   }
 };

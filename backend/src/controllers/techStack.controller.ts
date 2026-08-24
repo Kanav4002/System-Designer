@@ -83,7 +83,7 @@ export const generateTechStack = async (
       techStack,
     });
   } catch (error: any) {
-    console.error("Generate tech stack error:", error);
+    console.error("Generate tech stack error:", error.message, error.stack);
 
     if (error.message.includes("invalid JSON") || error.message.includes("validation failed")) {
       res.status(502).json({
@@ -95,7 +95,7 @@ export const generateTechStack = async (
 
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message || "Internal server error",
     });
   }
 };

@@ -88,10 +88,8 @@ Estimated Phases: ${analysis.estimatedPhases}`;
 
   const rawResponse = await generateAIResponse(SYSTEM_PROMPT, contextPrompt);
 
-  let parsedResponse: unknown;
-  try {
-    parsedResponse = JSON.parse(rawResponse);
-  } catch {
+  const parsedResponse = parseAiJsonResponse(rawResponse);
+  if (!parsedResponse) {
     throw new Error("AI returned invalid JSON");
   }
 
@@ -102,3 +100,66 @@ Estimated Phases: ${analysis.estimatedPhases}`;
 
   return validation.data;
 };
+
+function cleanJsonString(str: string): string {
+  str = str.replace(/```json\s*/g, "").replace(/```/g, "");
+  str = str.replace(/,(\s*[}\]])/g, "$1");
+  str = str.replace(/,\s*}/g, "}");
+  str = str.replace(/,\s*\]/g, "]");
+  str = str.replace(/([\x00-\x1F\x7F])/g, "");
+  return str;
+}
+
+function parseAiJsonResponse(raw: string): unknown | null {
+  if (!raw || raw.trim().length === 0) return null;
+
+  let jsonStr = raw.trim();
+  jsonStr = jsonStr.replace(/```json\s*/g, "").replace(/```/g, "");
+  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) jsonStr = jsonMatch[0];
+  jsonStr = cleanJsonString(jsonStr);
+
+  try {
+    return JSON.parse(jsonStr);
+  } catch {}
+
+  try {
+    let recovered = jsonStr
+      .replace(/[\x00-\x1F\x7F]/g, "")
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*\]/g, "]")
+      .replace(/'([^']*)'/g, '"$1"')
+      .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+
+    for (let i = 0; i < 20; i++) {
+      recovered = recovered.replace(/"([^"]*)"\s*"([^"]*)"(?=\s*[,\]}])/g, '"$1", "$2"');
+    }
+    recovered = recovered.replace(/,(\s*[}\]])/g, "$1");
+
+    return JSON.parse(recovered);
+  } catch {}
+
+  try {
+    let completed = jsonStr;
+    let openBraces = 0, openBrackets = 0, inString = false, escapeNext = false;
+    for (let i = 0; i < completed.length; i++) {
+      const c = completed[i];
+      if (escapeNext) { escapeNext = false; continue; }
+      if (c === '\\') { escapeNext = true; continue; }
+      if (c === '"' && !escapeNext) { inString = !inString; continue; }
+      if (!inString) {
+        if (c === '{') openBraces++;
+        else if (c === '}') openBraces--;
+        else if (c === '[') openBrackets++;
+        else if (c === ']') openBrackets--;
+      }
+    }
+    while (openBrackets > 0) { completed += ']'; openBrackets--; }
+    while (openBraces > 0) { completed += '}'; openBraces--; }
+    if (completed.match(/:\s*"[^"]*$/)) completed += '"';
+    completed = cleanJsonString(completed);
+    return JSON.parse(completed);
+  } catch {}
+
+  return null;
+}
