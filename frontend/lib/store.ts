@@ -9,7 +9,7 @@ import type {
   ChatMessage,
   TaskStatus,
 } from './types';
-import { projectApi } from './api';
+import { projectApi, analysisApi } from './api';
 
 interface AppState {
   projects: Project[];
@@ -27,6 +27,8 @@ interface AppState {
   }) => Promise<string>;
   deleteProject: (id: string) => Promise<void>;
   getProject: (id: string) => Project | undefined;
+  fetchAnalysis: (projectId: string) => Promise<void>;
+  generateAnalysis: (projectId: string) => Promise<void>;
 
   updateTaskStatus: (projectId: string, taskId: string, status: TaskStatus) => void;
   updateTask: (projectId: string, taskId: string, updates: Partial<Task>) => void;
@@ -97,7 +99,10 @@ function mapApiProject(apiProject: any): Project {
       targetUsers: [],
       functionalRequirements: [],
       nonFunctionalRequirements: [],
-      technicalComplexity: 'Low',
+      technicalComplexity: {
+        level: 'Low' as const,
+        reason: '',
+      },
       estimatedPhases: 0,
     },
     phases: [],
@@ -154,6 +159,39 @@ export const useStore = create<AppState>()(
       },
 
       getProject: (id) => get().projects.find((p) => p.id === id),
+
+      fetchAnalysis: async (projectId) => {
+        try {
+          const response = await analysisApi.get(projectId);
+          const analysis = response.analysis;
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, analysis } : p
+            ),
+          }));
+        } catch (error: any) {
+          if (error.message?.includes('404') || error.message?.includes('not found')) {
+            // No analysis exists yet - leave as undefined so UI shows generate button
+            return;
+          }
+          console.error('Failed to fetch analysis:', error);
+        }
+      },
+
+      generateAnalysis: async (projectId) => {
+        try {
+          const response = await analysisApi.generate(projectId);
+          const analysis = response.analysis;
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, analysis } : p
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to generate analysis:', error);
+          throw error;
+        }
+      },
 
       updateTaskStatus: (projectId, taskId, status) => {
         set((state) => ({

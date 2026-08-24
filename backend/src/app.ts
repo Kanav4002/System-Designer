@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
 import authRouter from "./routes/auth.routes.js";
 import projectRouter from "./routes/project.routes.js";
+import analysisRouter from "./routes/analysis.routes.js";
 
 const app = express();
 
@@ -33,6 +34,7 @@ const apiLimiter = rateLimit({
 app.use("/api", apiLimiter);
 app.use("/api/auth", authRouter);
 app.use("/api/projects", projectRouter);
+app.use("/api/projects/:id/analysis", analysisRouter);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({

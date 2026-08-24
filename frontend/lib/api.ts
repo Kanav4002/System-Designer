@@ -51,6 +51,16 @@ export const projectApi = {
     }),
 };
 
+export const analysisApi = {
+  generate: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; analysis: any }>(`/api/projects/${projectId}/analysis/generate`, {
+      method: 'POST',
+    }),
+
+  get: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; analysis: any }>(`/api/projects/${projectId}/analysis`),
+};
+
 export const authApi = {
   register: (data: { name: string; email: string; password: string }) =>
     fetchWithAuth<{ success: boolean; token: string; user: any }>('/api/auth/register', {

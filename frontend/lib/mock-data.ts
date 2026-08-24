@@ -254,7 +254,10 @@ function analyzeIdea(idea: string, type: string): ProjectAnalysis {
     targetUsers: users,
     functionalRequirements: functional,
     nonFunctionalRequirements: nonFunctional,
-    technicalComplexity: complexity as ProjectAnalysis['technicalComplexity'],
+    technicalComplexity: {
+      level: complexity as 'Low' | 'Medium' | 'High' | 'Very High',
+      reason: 'Based on project scope and integration requirements',
+    },
     estimatedPhases: 5,
   };
 }

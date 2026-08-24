@@ -49,7 +49,10 @@ export interface ProjectAnalysis {
   targetUsers: string[];
   functionalRequirements: string[];
   nonFunctionalRequirements: string[];
-  technicalComplexity: 'Low' | 'Medium' | 'High' | 'Very High';
+  technicalComplexity: {
+    level: 'Low' | 'Medium' | 'High' | 'Very High';
+    reason: string;
+  };
   estimatedPhases: number;
 }
 
