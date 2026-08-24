@@ -6,12 +6,13 @@ import type {
   TechItem,
   TechCategory,
   TechStack,
+  Roadmap,
   ArchNodeData,
   ChatMessage,
   TaskStatus,
 } from './types';
 import { techStackToItems } from './types';
-import { projectApi, analysisApi, techStackApi } from './api';
+import { projectApi, analysisApi, techStackApi, roadmapApi } from './api';
 
 interface AppState {
   projects: Project[];
@@ -33,6 +34,8 @@ interface AppState {
   generateAnalysis: (projectId: string) => Promise<void>;
   fetchTechStack: (projectId: string) => Promise<void>;
   generateTechStack: (projectId: string) => Promise<void>;
+  fetchRoadmap: (projectId: string) => Promise<void>;
+  generateRoadmap: (projectId: string) => Promise<void>;
 
   updateTaskStatus: (projectId: string, taskId: string, status: TaskStatus) => void;
   updateTask: (projectId: string, taskId: string, updates: Partial<Task>) => void;
@@ -137,6 +140,80 @@ function mapApiProject(apiProject: any): Project {
     createdAt: apiProject.createdAt,
     updatedAt: apiProject.updatedAt,
   };
+}
+
+function roadmapToProjectRoadmap(roadmap: any): Roadmap {
+  if (!roadmap?.phases) {
+    return {
+      _id: '',
+      projectId: '',
+      phases: [],
+      statistics: { totalTasks: 0, completedTasks: 0, inProgressTasks: 0, notStartedTasks: 0, blockedTasks: 0, progress: 0 },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  
+  return {
+    _id: roadmap._id,
+    projectId: roadmap.projectId,
+    phases: roadmap.phases.map((phase: any) => ({
+      id: phase._id || phase.id,
+      projectId: roadmap.projectId,
+      title: phase.title,
+      description: phase.description,
+      order: phase.order || phase.phaseNumber - 1,
+      status: mapBackendStatus(phase.status),
+      difficulty: capitalizeFirst(phase.difficulty),
+      totalTasks: phase.totalTasks || phase.tasks?.length || 0,
+      completedTasks: phase.completedTasks || 0,
+      progress: phase.progress || 0,
+      tasks: (phase.tasks || []).map((task: any) => ({
+        id: task._id || task.id,
+        phaseId: phase._id || phase.id,
+        title: task.title,
+        description: task.description,
+        status: mapTaskStatus(task.status),
+        priority: capitalizeFirst(task.priority),
+        difficulty: 'Medium' as const,
+        estimatedTime: `${task.estimatedHours || 0}h`,
+        dependencies: task.dependencies || [],
+        order: task.order || 0,
+      })),
+    })),
+    statistics: roadmap.statistics || {
+      totalTasks: 0,
+      completedTasks: 0,
+      inProgressTasks: 0,
+      notStartedTasks: 0,
+      blockedTasks: 0,
+      progress: 0,
+    },
+    createdAt: roadmap.createdAt,
+    updatedAt: roadmap.updatedAt,
+  };
+}
+
+function mapBackendStatus(status: string): 'Not Started' | 'In Progress' | 'Completed' | 'Blocked' {
+  switch (status) {
+    case 'completed': return 'Completed';
+    case 'in_progress': return 'In Progress';
+    case 'blocked': return 'Blocked';
+    default: return 'Not Started';
+  }
+}
+
+function mapTaskStatus(status: string): 'Not Started' | 'In Progress' | 'Completed' | 'Blocked' {
+  switch (status) {
+    case 'completed': return 'Completed';
+    case 'in_progress': return 'In Progress';
+    case 'blocked': return 'Blocked';
+    default: return 'Not Started';
+  }
+}
+
+function capitalizeFirst(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 import {
@@ -245,6 +322,38 @@ export const useStore = create<AppState>()(
           }));
         } catch (error) {
           console.error('Failed to generate tech stack:', error);
+          throw error;
+        }
+      },
+
+      fetchRoadmap: async (projectId) => {
+        try {
+          const response = await roadmapApi.get(projectId);
+          const roadmap = response.roadmap;
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, roadmap: roadmapToProjectRoadmap(roadmap) } : p
+            ),
+          }));
+        } catch (error: any) {
+          if (error.message?.includes('404') || error.message?.includes('not found')) {
+            return;
+          }
+          console.error('Failed to fetch roadmap:', error);
+        }
+      },
+
+      generateRoadmap: async (projectId) => {
+        try {
+          const response = await roadmapApi.generate(projectId);
+          const roadmap = response.roadmap;
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, roadmap: roadmapToProjectRoadmap(roadmap) } : p
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to generate roadmap:', error);
           throw error;
         }
       },
