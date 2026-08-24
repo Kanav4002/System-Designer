@@ -77,16 +77,6 @@ export const techStackApi = {
     }),
 };
 
-export const roadmapApi = {
-  generate: (projectId: string) =>
-    fetchWithAuth<{ success: boolean; roadmap: any }>(`/api/projects/${projectId}/roadmap/generate`, {
-      method: 'POST',
-    }),
-
-  get: (projectId: string) =>
-    fetchWithAuth<{ success: boolean; roadmap: any }>(`/api/projects/${projectId}/roadmap`),
-};
-
 export const authApi = {
   register: (data: { name: string; email: string; password: string }) =>
     fetchWithAuth<{ success: boolean; token: string; user: any }>('/api/auth/register', {

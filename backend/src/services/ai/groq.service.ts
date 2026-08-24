@@ -5,7 +5,7 @@ export const generateAIResponse = async (
   userPrompt: string
 ): Promise<string> => {
   const completion = await groq.chat.completions.create({
-    model: "openai/gpt-oss-20b",
+    model: "openai/gpt-oss-120b",
     messages: [
       {
         role: "system",
@@ -17,7 +17,6 @@ export const generateAIResponse = async (
       },
     ],
     temperature: 0.3,
-    max_tokens: 4096,
   });
 
   return completion.choices[0]?.message?.content || "";

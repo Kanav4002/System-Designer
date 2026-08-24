@@ -413,10 +413,6 @@ export function generateProject(opts: {
       order: phaseIdx,
       status: phaseStatus,
       difficulty: phaseIdx < 2 ? 'Easy' : phaseIdx < 4 ? 'Medium' : 'Hard',
-      totalTasks: template.tasks.length,
-      completedTasks: completedTasks ? template.tasks.length : partialTasks ? 2 : 0,
-      progress: completedTasks ? 100 : partialTasks ? Math.round((2 / template.tasks.length) * 100) : 0,
-      tasks: [],
     });
 
     template.tasks.forEach((taskTemplate, taskIdx) => {

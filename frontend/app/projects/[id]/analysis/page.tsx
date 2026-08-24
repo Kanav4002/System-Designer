@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { notFound } from 'next/navigation';
 import {
   Brain,
@@ -37,8 +37,6 @@ export default function AnalysisPage({
   const fetchAnalysis = useStore((s) => s.fetchAnalysis);
   const generateAnalysis = useStore((s) => s.generateAnalysis);
 
-  const [generating, setGenerating] = useState(false);
-
   if (!project) return notFound();
 
   const analysis = project.analysis;
@@ -51,17 +49,17 @@ export default function AnalysisPage({
   }, [id, hasAnalysis, fetchAnalysis]);
 
   const handleGenerate = async () => {
-    setGenerating(true);
     try {
       await generateAnalysis(id);
     } catch (error) {
       console.error('Failed to generate analysis:', error);
-    } finally {
-      setGenerating(false);
     }
   };
 
-  if (!hasAnalysis && !generating) {
+  const complexity = analysis?.technicalComplexity?.level || 'Low';
+  const complexityReason = analysis?.technicalComplexity?.reason || '';
+
+  if (!hasAnalysis) {
     return (
       <div className="mx-auto max-w-4xl space-y-6 p-6">
         <div className="flex items-center gap-2">
@@ -87,36 +85,6 @@ export default function AnalysisPage({
     );
   }
 
-  if (generating && !hasAnalysis) {
-    return (
-      <div className="mx-auto max-w-4xl space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">AI Project Analysis</h1>
-          </div>
-          <Button variant="outline" size="sm" disabled>
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            Generating...
-          </Button>
-        </div>
-
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Brain className="mb-4 h-12 w-12 text-muted-foreground/50 animate-pulse" />
-            <h3 className="mb-2 font-semibold">Generating analysis...</h3>
-            <p className="text-sm text-muted-foreground">
-              This may take a moment
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const complexity = analysis?.technicalComplexity?.level || 'Low';
-  const complexityReason = analysis?.technicalComplexity?.reason || '';
-
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -124,18 +92,9 @@ export default function AnalysisPage({
           <Brain className="h-5 w-5 text-primary" />
           <h1 className="text-2xl font-bold tracking-tight">AI Project Analysis</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
-          {generating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Regenerating...
-            </>
-          ) : (
-            <>
-              <Zap className="mr-2 h-4 w-4" />
-              Regenerate
-            </>
-          )}
+        <Button variant="outline" size="sm" onClick={handleGenerate}>
+          <Zap className="mr-2 h-4 w-4" />
+          Regenerate
         </Button>
       </div>
 
@@ -197,10 +156,7 @@ export default function AnalysisPage({
         <CardContent>
           <div className="grid gap-2 sm:grid-cols-2">
             {analysis.mainFeatures.map((feature, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-2 rounded-lg border border-border p-3"
-              >
+              <div key={idx} className="flex items-start gap-2 rounded-lg border border-border p-3">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-chart-2" />
                 <span className="text-sm">{feature}</span>
               </div>

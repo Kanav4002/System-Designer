@@ -60,42 +60,6 @@ export interface RoadmapPhase {
   order: number;
   status: PhaseStatus;
   difficulty: TaskDifficulty;
-  totalTasks: number;
-  completedTasks: number;
-  progress: number;
-  tasks: RoadmapTask[];
-}
-
-export type RoadmapTaskStatus = 'not_started' | 'in_progress' | 'completed' | 'blocked';
-export type RoadmapTaskPriority = 'low' | 'medium' | 'high';
-
-export interface RoadmapTask {
-  _id: string;
-  title: string;
-  description: string;
-  order: number;
-  estimatedHours: number;
-  priority: RoadmapTaskPriority;
-  status: RoadmapTaskStatus;
-  dependencies: string[];
-}
-
-export interface RoadmapStatistics {
-  totalTasks: number;
-  completedTasks: number;
-  inProgressTasks: number;
-  notStartedTasks: number;
-  blockedTasks: number;
-  progress: number;
-}
-
-export interface Roadmap {
-  _id: string;
-  projectId: string;
-  phases: RoadmapPhase[];
-  statistics: RoadmapStatistics;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface ProjectAnalysis {
@@ -154,11 +118,9 @@ export interface Project {
   techStack: TechStack;
   analysis: ProjectAnalysis;
   phases: RoadmapPhase[];
-  roadmap?: Roadmap;
   tasks: Task[];
   archNodes: ArchNodeData[];
   archEdges: { id: string; source: string; target: string }[];
-  roadmapId?: string;
   chat: ChatMessage[];
   createdAt: string;
   updatedAt: string;

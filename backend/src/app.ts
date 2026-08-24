@@ -9,7 +9,6 @@ import authRouter from "./routes/auth.routes.js";
 import projectRouter from "./routes/project.routes.js";
 import analysisRouter from "./routes/analysis.routes.js";
 import techStackRouter from "./routes/techStack.routes.js";
-import roadmapRouter from "./routes/roadmap.routes.js";
 
 const app = express();
 
@@ -38,7 +37,6 @@ app.use("/api/auth", authRouter);
 app.use("/api/projects", projectRouter);
 app.use("/api/projects/:id/analysis", analysisRouter);
 app.use("/api/projects/:id/tech-stack", techStackRouter);
-app.use("/api/projects/:id/roadmap", roadmapRouter);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
