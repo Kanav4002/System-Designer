@@ -9,17 +9,14 @@ import type {
   ChatMessage,
   TaskStatus,
 } from './types';
-import {
-  SAMPLE_PROJECTS,
-  generateProject,
-  findTech,
-  uid,
-} from './mock-data';
+import { projectApi } from './api';
 
 interface AppState {
   projects: Project[];
   theme: 'dark' | 'light';
+  isLoading: boolean;
 
+  fetchProjects: () => Promise<void>;
   createProject: (opts: {
     name: string;
     description: string;
@@ -27,8 +24,8 @@ interface AppState {
     experienceLevel: Project['experienceLevel'];
     mode: 'ai' | 'manual';
     selectedTech?: { category: TechCategory; technology: string }[];
-  }) => string;
-  deleteProject: (id: string) => void;
+  }) => Promise<string>;
+  deleteProject: (id: string) => Promise<void>;
   getProject: (id: string) => Project | undefined;
 
   updateTaskStatus: (projectId: string, taskId: string, status: TaskStatus) => void;
@@ -81,19 +78,78 @@ function computeProgress(project: Project): { progress: number; phaseStatuses: M
   return { progress, phaseStatuses };
 }
 
+function mapApiProject(apiProject: any): Project {
+  return {
+    id: apiProject._id,
+    _id: apiProject._id,
+    userId: apiProject.userId,
+    name: apiProject.name,
+    description: apiProject.description,
+    type: apiProject.type,
+    experienceLevel: apiProject.experienceLevel,
+    status: apiProject.status,
+    progress: apiProject.progress,
+    currentPhase: 'Planning',
+    techStack: [],
+    analysis: {
+      summary: '',
+      mainFeatures: [],
+      targetUsers: [],
+      functionalRequirements: [],
+      nonFunctionalRequirements: [],
+      technicalComplexity: 'Low',
+      estimatedPhases: 0,
+    },
+    phases: [],
+    tasks: [],
+    archNodes: [],
+    archEdges: [],
+    chat: [],
+    createdAt: apiProject.createdAt,
+    updatedAt: apiProject.updatedAt,
+  };
+}
+
+import {
+  SAMPLE_PROJECTS,
+  generateProject,
+  findTech,
+  uid,
+} from './mock-data';
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
-      projects: SAMPLE_PROJECTS,
+      projects: [],
       theme: 'dark',
+      isLoading: false,
 
-      createProject: (opts) => {
-        const project = generateProject(opts);
-        set((state) => ({ projects: [...state.projects, project] }));
+      fetchProjects: async () => {
+        set({ isLoading: true });
+        try {
+          const response = await projectApi.getAll();
+          const projects = response.projects.map(mapApiProject);
+          set({ projects, isLoading: false });
+        } catch (error) {
+          console.error('Failed to fetch projects:', error);
+          set({ isLoading: false });
+        }
+      },
+
+      createProject: async (opts) => {
+        const response = await projectApi.create({
+          name: opts.name,
+          description: opts.description,
+          type: opts.type,
+          experienceLevel: opts.experienceLevel,
+        });
+        const project = mapApiProject(response.project);
+        set((state) => ({ projects: [project, ...state.projects] }));
         return project.id;
       },
 
-      deleteProject: (id) => {
+      deleteProject: async (id) => {
+        await projectApi.delete(id);
         set((state) => ({ projects: state.projects.filter((p) => p.id !== id) }));
       },
 
@@ -331,7 +387,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'psd-store',
-      partialize: (state) => ({ projects: state.projects }),
+      partialize: (state) => ({ projects: state.projects, theme: state.theme }),
     }
   )
 );

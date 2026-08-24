@@ -515,6 +515,8 @@ export function generateProject(opts: {
 
   return {
     id,
+    _id: id,
+    userId: 'mock-user',
     name: opts.name,
     description: opts.description,
     type: opts.type,

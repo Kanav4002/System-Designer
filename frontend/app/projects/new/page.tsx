@@ -75,22 +75,22 @@ export default function CreateProjectPage() {
     );
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!canSubmit) return;
     setGenerating(true);
 
-    setTimeout(() => {
-      const selectedTechList =
-        mode === 'manual'
-          ? [
-              ...(selectedTech.Frontend ? [{ category: 'Frontend' as TechCategory, technology: selectedTech.Frontend }] : []),
-              ...(selectedTech.Backend ? [{ category: 'Backend' as TechCategory, technology: selectedTech.Backend }] : []),
-              ...(selectedTech.Database ? [{ category: 'Database' as TechCategory, technology: selectedTech.Database }] : []),
-              ...extraTech.map((t) => ({ category: 'Other Services' as TechCategory, technology: t })),
-            ]
-          : undefined;
+    const selectedTechList =
+      mode === 'manual'
+        ? [
+            ...(selectedTech.Frontend ? [{ category: 'Frontend' as TechCategory, technology: selectedTech.Frontend }] : []),
+            ...(selectedTech.Backend ? [{ category: 'Backend' as TechCategory, technology: selectedTech.Backend }] : []),
+            ...(selectedTech.Database ? [{ category: 'Database' as TechCategory, technology: selectedTech.Database }] : []),
+            ...extraTech.map((t) => ({ category: 'Other Services' as TechCategory, technology: t })),
+          ]
+        : undefined;
 
-      const id = createProject({
+    try {
+      const id = await createProject({
         name,
         description,
         type,
@@ -99,7 +99,11 @@ export default function CreateProjectPage() {
         selectedTech: selectedTechList,
       });
       router.push(`/projects/${id}/overview`);
-    }, 1200);
+    } catch (error) {
+      console.error('Failed to create project:', error);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (

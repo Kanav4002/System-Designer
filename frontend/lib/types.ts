@@ -83,7 +83,9 @@ export interface ChatMessage {
 }
 
 export interface Project {
+  _id: string;
   id: string;
+  userId: string;
   name: string;
   description: string;
   type: string;
@@ -98,6 +100,23 @@ export interface Project {
   archNodes: ArchNodeData[];
   archEdges: { id: string; source: string; target: string }[];
   chat: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiProject {
+  _id: string;
+  userId: string;
+  name: string;
+  description: string;
+  type: string;
+  experienceLevel: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
+  status: 'Planning' | 'In Progress' | 'Completed' | 'On Hold';
+  progress: number;
+  analysisId?: string;
+  techStackId?: string;
+  roadmapId?: string;
+  architectureId?: string;
   createdAt: string;
   updatedAt: string;
 }

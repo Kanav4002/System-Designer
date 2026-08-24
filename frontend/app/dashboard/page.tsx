@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function formatDate(iso: string) {
   const date = new Date(iso);
@@ -47,11 +49,17 @@ const statusColors: Record<string, string> = {
 export default function DashboardPage() {
   const router = useRouter();
   const projects = useStore((s) => s.projects);
+  const isLoading = useStore((s) => s.isLoading);
+  const fetchProjects = useStore((s) => s.fetchProjects);
   const stats = getProjectStats(projects);
   const recentProjects = [...projects].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   const statCards = [
     {
@@ -199,7 +207,22 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {recentProjects.length === 0 ? (
+        {isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader className="pb-3">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="mt-2 h-4 w-1/2" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Skeleton className="h-6 w-full" />
+                  <Skeleton className="h-1.5 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : recentProjects.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <FolderKanban className="mb-4 h-12 w-12 text-muted-foreground/50" />
