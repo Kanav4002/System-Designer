@@ -94,6 +94,22 @@ export const authApi = {
     fetchWithAuth<{ success: boolean; user: any }>('/api/auth/me'),
 };
 
+export const roadmapApi = {
+  generate: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; roadmap: any }>(`/api/projects/${projectId}/roadmap/generate`, {
+      method: 'POST',
+    }),
+
+  get: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; roadmap: any }>(`/api/projects/${projectId}/roadmap`),
+
+  updateTaskStatus: (projectId: string, phaseIndex: number, taskIndex: number, status: string) =>
+    fetchWithAuth<{ success: boolean; roadmap: any }>(`/api/projects/${projectId}/roadmap/tasks/${phaseIndex}/${taskIndex}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+};
+
 export const healthApi = {
   check: () =>
     fetch(`${API_URL}/api/health`).then((res) => res.json()),

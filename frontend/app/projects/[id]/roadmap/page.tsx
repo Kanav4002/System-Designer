@@ -1,15 +1,16 @@
 'use client';
 
-
+import { useEffect, useState } from 'react';
 import { notFound } from 'next/navigation';
-import { GitBranch, Circle, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { GitBranch, Circle, CheckCircle2, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { useStore, getPhaseProgress } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
-const phaseStatusConfig = {
+const phaseStatusConfig: Record<string, { icon: any; color: string; badge: string }> = {
   Completed: { icon: CheckCircle2, color: 'text-chart-2', badge: 'bg-chart-2/15 text-chart-2' },
   'In Progress': { icon: Clock, color: 'text-chart-1', badge: 'bg-chart-1/15 text-chart-1' },
   'Not Started': { icon: Circle, color: 'text-muted-foreground', badge: 'bg-muted text-muted-foreground' },
@@ -30,13 +31,91 @@ export default function RoadmapPage({
 }) {
   const { id } = params;
   const project = useStore((s) => s.projects.find((p) => p.id === id));
+  const fetchRoadmap = useStore((s) => s.fetchRoadmap);
+  const generateRoadmap = useStore((s) => s.generateRoadmap);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => {
+    if (!project) return;
+    if (project.phases.length > 0) {
+      setInitialLoading(false);
+      return;
+    }
+    fetchRoadmap(id).finally(() => setInitialLoading(false));
+  }, [id, project?.phases.length]);
+
   if (!project) return notFound();
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    try {
+      await generateRoadmap(id);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (initialLoading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-6">
+        <div className="flex items-center gap-2">
+          <GitBranch className="h-5 w-5 text-primary" />
+          <h1 className="text-2xl font-bold tracking-tight">Project Roadmap</h1>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  if (project.phases.length === 0) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-6">
+        <div className="flex items-center gap-2">
+          <GitBranch className="h-5 w-5 text-primary" />
+          <h1 className="text-2xl font-bold tracking-tight">Project Roadmap</h1>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
+            <GitBranch className="h-12 w-12 text-muted-foreground" />
+            <p className="text-lg font-medium">No roadmap generated yet</p>
+            <p className="text-sm text-muted-foreground">Generate a roadmap to get started with your project plan.</p>
+            <Button onClick={handleGenerate} disabled={loading} size="lg">
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                'Generate Roadmap'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6">
-      <div className="flex items-center gap-2">
-        <GitBranch className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold tracking-tight">Project Roadmap</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <GitBranch className="h-5 w-5 text-primary" />
+          <h1 className="text-2xl font-bold tracking-tight">Project Roadmap</h1>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleGenerate}
+          disabled={loading}
+        >
+          {loading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
+          Regenerate
+        </Button>
       </div>
 
       <div className="relative">
@@ -45,7 +124,7 @@ export default function RoadmapPage({
 
         <div className="space-y-4">
           {project.phases.map((phase, idx) => {
-            const config = phaseStatusConfig[phase.status];
+            const config = phaseStatusConfig[phase.status] || phaseStatusConfig['Not Started'];
             const StatusIcon = config.icon;
             const progress = getPhaseProgress(project, phase.id);
             const phaseTasks = project.tasks.filter((t) => t.phaseId === phase.id);

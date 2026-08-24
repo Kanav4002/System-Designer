@@ -9,9 +9,11 @@ import type {
   ArchNodeData,
   ChatMessage,
   TaskStatus,
+  RoadmapPhase,
+  PhaseStatus,
 } from './types';
 import { techStackToItems } from './types';
-import { projectApi, analysisApi, techStackApi } from './api';
+import { projectApi, analysisApi, techStackApi, roadmapApi } from './api';
 
 interface AppState {
   projects: Project[];
@@ -33,6 +35,8 @@ interface AppState {
   generateAnalysis: (projectId: string) => Promise<void>;
   fetchTechStack: (projectId: string) => Promise<void>;
   generateTechStack: (projectId: string) => Promise<void>;
+  fetchRoadmap: (projectId: string) => Promise<void>;
+  generateRoadmap: (projectId: string) => Promise<void>;
 
   updateTaskStatus: (projectId: string, taskId: string, status: TaskStatus) => void;
   updateTask: (projectId: string, taskId: string, updates: Partial<Task>) => void;
@@ -245,6 +249,97 @@ export const useStore = create<AppState>()(
           }));
         } catch (error) {
           console.error('Failed to generate tech stack:', error);
+          throw error;
+        }
+      },
+
+      fetchRoadmap: async (projectId) => {
+        try {
+          const response = await roadmapApi.get(projectId);
+          const roadmap = response.roadmap;
+          if (!roadmap) return;
+
+          const phases: RoadmapPhase[] = roadmap.phases.map((phase: any) => ({
+            id: `phase-${phase.phaseNumber}`,
+            projectId,
+            title: phase.title,
+            description: phase.description,
+            order: phase.order,
+            status: 'Not Started' as PhaseStatus,
+            difficulty: phase.difficulty || 'Medium',
+          }));
+
+          const tasks: Task[] = [];
+          roadmap.phases.forEach((phase: any) => {
+            phase.tasks?.forEach((task: any, taskIdx: number) => {
+              tasks.push({
+                id: `task-${phase.phaseNumber}-${taskIdx}`,
+                phaseId: `phase-${phase.phaseNumber}`,
+                title: task.title,
+                description: task.description,
+                status: task.status === 'completed' ? 'Completed' : task.status === 'in_progress' ? 'In Progress' : task.status === 'blocked' ? 'Blocked' : 'Not Started',
+                priority: task.priority === 'high' ? 'High' : task.priority === 'low' ? 'Low' : 'Medium',
+                difficulty: phase.difficulty === 'easy' ? 'Easy' : phase.difficulty === 'hard' ? 'Hard' : 'Medium',
+                estimatedTime: `${task.estimatedHours || 4}h`,
+                dependencies: task.dependencies || [],
+                order: task.order || taskIdx,
+              });
+            });
+          });
+
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, phases, tasks } : p
+            ),
+          }));
+        } catch (error: any) {
+          if (error.message?.includes('404') || error.message?.includes('not found')) {
+            return;
+          }
+          console.error('Failed to fetch roadmap:', error);
+        }
+      },
+
+      generateRoadmap: async (projectId) => {
+        try {
+          const response = await roadmapApi.generate(projectId);
+          const roadmap = response.roadmap;
+
+          const phases: RoadmapPhase[] = roadmap.phases.map((phase: any) => ({
+            id: `phase-${phase.phaseNumber}`,
+            projectId,
+            title: phase.title,
+            description: phase.description,
+            order: phase.order,
+            status: 'Not Started' as PhaseStatus,
+            difficulty: phase.difficulty || 'Medium',
+          }));
+
+          const tasks: Task[] = [];
+          roadmap.phases.forEach((phase: any) => {
+            phase.tasks?.forEach((task: any, taskIdx: number) => {
+              tasks.push({
+                id: `task-${phase.phaseNumber}-${taskIdx}`,
+                phaseId: `phase-${phase.phaseNumber}`,
+                title: task.title,
+                description: task.description,
+                status: task.status === 'completed' ? 'Completed' : task.status === 'in_progress' ? 'In Progress' : task.status === 'blocked' ? 'Blocked' : 'Not Started',
+                priority: task.priority === 'high' ? 'High' : task.priority === 'low' ? 'Low' : 'Medium',
+                difficulty: phase.difficulty === 'easy' ? 'Easy' : phase.difficulty === 'hard' ? 'Hard' : 'Medium',
+                estimatedTime: `${task.estimatedHours || 4}h`,
+                dependencies: task.dependencies || [],
+                order: task.order || taskIdx,
+              });
+            });
+          });
+
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, phases, tasks } : p
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to generate roadmap:', error);
           throw error;
         }
       },
