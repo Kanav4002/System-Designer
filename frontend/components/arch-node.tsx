@@ -30,33 +30,45 @@ export interface ArchNodeData {
 
 function ArchNodeComponent({ data, selected }: NodeProps<ArchNodeData>) {
   const style = NODE_STYLES[data.type] || NODE_STYLES['Microservice'];
+  const seqNumber = data.seqNumber as number | undefined;
 
   return (
     <div
       className={cn(
-        'min-w-[160px] max-w-[220px] rounded-xl border-2 bg-card px-4 py-3 shadow-md transition-all',
-        style.color,
-        selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+        'relative min-w-[170px] max-w-[230px] rounded-xl border bg-card/90 backdrop-blur-sm px-4 py-3 shadow-sm transition-all duration-200 hover:shadow-md',
+        selected ? 'border-primary ring-1 ring-primary' : 'border-border/60'
       )}
     >
-      <Handle type="target" position={Position.Top} className="!bg-primary" />
-      <Handle type="target" position={Position.Left} className="!bg-primary" />
-
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{style.icon}</span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{data.label}</p>
-          <p className="truncate text-[10px] text-muted-foreground">{data.type}</p>
+      {/* Custom Sequence Number Badge */}
+      {seqNumber !== undefined && (
+        <div className="absolute -right-2.5 -top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground shadow-sm ring-2 ring-background">
+          {seqNumber}
         </div>
-      </div>
-      {data.technology && (
-        <p className="mt-1.5 truncate text-[10px] font-medium text-muted-foreground">
-          {data.technology}
-        </p>
       )}
 
-      <Handle type="source" position={Position.Bottom} className="!bg-primary" />
-      <Handle type="source" position={Position.Right} className="!bg-primary" />
+      <Handle type="target" position={Position.Top} className="!bg-primary/80 !w-2 !h-2 !border-0" />
+      <Handle type="target" position={Position.Left} className="!bg-primary/80 !w-2 !h-2 !border-0" />
+
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-base">
+          {style.icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold tracking-tight text-foreground">{data.label}</p>
+          <p className="truncate text-[9px] font-medium text-muted-foreground/80 uppercase tracking-wider">{data.type}</p>
+        </div>
+      </div>
+
+      {data.technology && (
+        <div className="mt-2 border-t border-border/40 pt-1.5">
+          <p className="truncate text-[10px] font-medium text-primary bg-primary/5 rounded px-1.5 py-0.5 inline-block">
+            {data.technology}
+          </p>
+        </div>
+      )}
+
+      <Handle type="source" position={Position.Bottom} className="!bg-primary/80 !w-2 !h-2 !border-0" />
+      <Handle type="source" position={Position.Right} className="!bg-primary/80 !w-2 !h-2 !border-0" />
     </div>
   );
 }

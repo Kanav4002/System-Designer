@@ -53,6 +53,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useStore } from '@/lib/store';
+import { architectureApi } from '@/lib/api';
 import { getArchNodeTypes } from '@/lib/mock-data';
 import { uid } from '@/lib/mock-data';
 import type { ArchNodeData, ArchNodeType } from '@/lib/types';
@@ -76,6 +77,56 @@ const DEFAULT_LAYOUT: Record<ArchNodeType, { x: number; y: number }> = {
   'External API': { x: 100, y: 225 },
   Microservice: { x: 350, y: 225 },
 };
+
+function calculateSequenceNumbers(nodes: ArchNodeData[], edges: { source: string; target: string }[]): Record<string, number> {
+  const sequence: Record<string, number> = {};
+  
+  // Find entry nodes (Frontend nodes)
+  const entryNodes = nodes.filter(n => n.type === 'Frontend');
+  if (entryNodes.length === 0) return sequence;
+  
+  // Build adjacency list for traversal
+  const adj: Record<string, string[]> = {};
+  nodes.forEach(n => adj[n.label] = []);
+  edges.forEach(e => {
+    if (adj[e.source]) {
+      adj[e.source].push(e.target);
+    }
+  });
+  
+  // BFS queue
+  const queue: string[] = [];
+  const visited = new Set<string>();
+  
+  // Initialize queue with all frontend nodes
+  entryNodes.forEach(n => {
+    queue.push(n.label);
+    visited.add(n.label);
+  });
+  
+  let currentNum = 1;
+  while (queue.length > 0) {
+    const curr = queue.shift()!;
+    sequence[curr] = currentNum++;
+    
+    const neighbors = adj[curr] || [];
+    for (const neighbor of neighbors) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+  
+  // For any nodes that were not reached, assign them sequence numbers at the end
+  nodes.forEach(n => {
+    if (!sequence[n.label]) {
+      sequence[n.label] = currentNum++;
+    }
+  });
+  
+  return sequence;
+}
 
 function ArchitectureCanvas({ projectId }: { projectId: string }) {
   const project = useStore((s) => s.projects.find((p) => p.id === projectId));
@@ -105,16 +156,24 @@ function ArchitectureCanvas({ projectId }: { projectId: string }) {
     return map;
   }, [project?.archNodes]);
 
+  const sequenceNums = useMemo(() => {
+    if (!project) return {};
+    return calculateSequenceNumbers(project.archNodes, project.archEdges);
+  }, [project?.archNodes, project?.archEdges]);
+
   const nodes: Node<ArchNodeData>[] = useMemo(() => {
     if (!project) return [];
     return project.archNodes.map((data, index) => ({
       id: data.label,
       type: 'archNode',
-      position: DEFAULT_LAYOUT[data.type] || { x: 100 * index, y: 100 * index },
-      data,
+      position: data.position || DEFAULT_LAYOUT[data.type] || { x: 100 * index, y: 100 * index },
+      data: {
+        ...data,
+        seqNumber: sequenceNums[data.label]
+      },
       selected: selectedNodeIndex === index,
     }));
-  }, [project, selectedNodeIndex]);
+  }, [project, selectedNodeIndex, sequenceNums]);
 
   const edges: Edge[] = useMemo(() => {
     if (!project) return [];
@@ -145,6 +204,18 @@ function ArchitectureCanvas({ projectId }: { projectId: string }) {
       });
     },
     [projectId, labelToIndex, removeArchNode]
+  );
+
+  const onNodeDragStop = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      const idx = labelToIndex.get(node.id);
+      if (idx !== undefined) {
+        updateArchNode(projectId, idx, {
+          position: node.position,
+        });
+      }
+    },
+    [projectId, labelToIndex, updateArchNode]
   );
 
   const onEdgesChange = useCallback(
@@ -271,6 +342,7 @@ function ArchitectureCanvas({ projectId }: { projectId: string }) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeDragStop={onNodeDragStop}
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.2 }}
@@ -510,26 +582,28 @@ export default function ArchitecturePage({
     if (!project) return;
     setLoading(true);
     try {
-      // Get current node positions from React Flow
-      // The nodes are stored in the project, we need to send them back with positions
-      const nodes = project.archNodes.map((node, index) => {
-        // We need to get the actual position from React Flow state
-        // For now, send the full architecture data
-        return {
-          id: node.label,
-          type: node.type.toLowerCase(),
-          label: node.label,
-          description: node.description,
-          technology: node.technology,
-          category: node.type.toLowerCase(),
-          position: { x: 100 + index * 200, y: 100 + index * 100 }, // fallback
-        };
-      });
+      const nodes = project.archNodes.map((node, index) => ({
+        id: node.label,
+        type: 'custom',
+        label: node.responsibilities?.[0] || node.label,
+        description: node.description,
+        technology: node.technology || '',
+        category: node.type.toLowerCase(),
+        position: node.position || DEFAULT_LAYOUT[node.type] || { x: 100 + index * 200, y: 100 + index * 100 },
+      }));
 
-      // This is a simplified version - in reality we'd need to get positions from React Flow
-      // For now, just call the update with the current nodes/edges
-      // The actual implementation would need React Flow's useStore to get positions
-      await useStore.getState().fetchArchitecture(id); // This will refresh from server
+      const edges = project.archEdges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: '',
+        type: 'smoothstep',
+      }));
+
+      await architectureApi.update(id, { nodes, edges });
+      await fetchArchitecture(id);
+    } catch (error) {
+      console.error('Failed to save architecture:', error);
     } finally {
       setLoading(false);
     }

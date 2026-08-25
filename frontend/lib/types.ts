@@ -94,6 +94,7 @@ export interface ArchNodeData {
   description: string;
   technology: string;
   responsibilities: string[];
+  position?: { x: number; y: number };
 }
 
 export interface ChatMessage {

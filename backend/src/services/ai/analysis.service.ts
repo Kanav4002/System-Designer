@@ -1,4 +1,4 @@
-import { generateAIResponse } from "./groq.service.js";
+import { generateAIResponse } from "./index.js";
 import {
   analysisResponseSchema,
   type AnalysisResponse,

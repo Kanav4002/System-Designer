@@ -1,4 +1,4 @@
-import { generateAIResponse } from "./groq.service.js";
+import { generateAIResponse } from "./index.js";
 import { techStackResponseSchema, type TechStackResponse } from "../../validators/techStack.validator.js";
 
 const SYSTEM_PROMPT = `You are an expert software architect. Recommend a technology stack for the given project based on its description, type, experience level, and AI analysis (if available).

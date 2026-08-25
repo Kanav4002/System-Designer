@@ -1,4 +1,4 @@
-import { generateAIResponse } from "./groq.service.js";
+import { generateAIResponse } from "./index.js";
 import { Analysis } from "../../models/Analysis.js";
 import { TechStack } from "../../models/TechStack.js";
 import { Roadmap } from "../../models/Roadmap.js";
@@ -156,6 +156,9 @@ function buildSystemPrompt(context: ProjectContext): string {
     `Progress: ${context.project.progress}%`,
   ];
 
+  // Add a clear marker for where context starts
+  parts.push("", "=== PROJECT CONTEXT STARTS HERE ===");
+
   if (context.analysis) {
     parts.push(
       "",
@@ -238,18 +241,21 @@ function buildSystemPrompt(context: ProjectContext): string {
     );
   }
 
-  parts.push(
+  parts.push("", "=== PROJECT CONTEXT ENDS HERE ===", "");
+
+parts.push(
     "",
-    "=== INSTRUCTIONS ===",
-    "1. Answer EVERY question using ONLY the project context above.",
-    "2. Reference specific details: tech names, task titles, component names, edge labels.",
-    "3. If asked about tech choices, quote the reasoning from the tech stack context.",
-    "4. If asked about next steps, check roadmap tasks that are not_started/in_progress and their dependencies.",
-    "5. If asked about architecture, list actual nodes and their connections from the architecture context.",
-    "6. If asked about tech stack, list the actual technologies from the tech stack context with their reasons.",
+    "=== INSTRUCTIONS (MANDATORY) ===",
+    "1. Answer EVERY question using ONLY the project context above (between CONTEXT STARTS/ENDS markers).",
+    "2. Reference SPECIFIC details: tech names, task titles, component names, edge labels from the context.",
+    "3. If asked about tech choices, QUOTE the reasoning from the TECH STACK section.",
+    "4. If asked about next steps, check ROADMAP tasks that are not_started/in_progress and their dependencies.",
+    "5. If asked about architecture, LIST actual nodes and connections from the ARCHITECTURE section.",
+    "6. If asked about tech stack, LIST the actual technologies from the TECH STACK section with their reasons.",
     "7. If the context lacks information for a question, say: 'I don't have that information in the project context.'",
-    "8. Never give generic advice - always use the specific project context.",
+    "8. NEVER give generic advice - ALWAYS use the specific project context.",
     "9. Be concise - 2-4 sentences max unless detail is requested.",
+    "10. If you don't know the answer from context, say so - DO NOT HALLUCINATE.",
   );
 
   return parts.join("\n");
@@ -280,7 +286,10 @@ export async function sendMessage(
     { role: "user" as const, content: userMessage },
   ];
 
-  const aiResponse = await generateAIResponse(messages);
+  let aiResponse = await generateAIResponse(messages);
+
+  // Remove <think>...</think> blocks from response
+  aiResponse = aiResponse.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
   let chat = await Chat.findOne({ projectId, userId });
   if (!chat) {

@@ -358,6 +358,7 @@ export const useStore = create<AppState>()(
             description: node.description,
             technology: node.technology,
             responsibilities: [node.label],
+            position: node.position,
           }));
 
           const archEdges: { id: string; source: string; target: string }[] = architecture.edges.map((edge: any) => ({
@@ -390,6 +391,7 @@ export const useStore = create<AppState>()(
             description: node.description,
             technology: node.technology,
             responsibilities: [node.label],
+            position: node.position,
           }));
 
           const archEdges: { id: string; source: string; target: string }[] = architecture.edges.map((edge: any) => ({

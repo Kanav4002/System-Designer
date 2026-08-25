@@ -1,4 +1,4 @@
-import { generateAIResponse } from "./groq.service.js";
+import { generateAIResponse } from "./index.js";
 import {
   architectureResponseSchema,
   type ArchitectureResponse,
@@ -186,18 +186,71 @@ function cleanJsonString(str: string): string {
   return str;
 }
 
-function tryParseJson(rawResponse: string): string | null {
+function extractJsonFromResponse(rawResponse: string): string | null {
   let jsonStr = rawResponse.trim();
+  
+  // Remove markdown code blocks
   jsonStr = jsonStr.replace(/```json\s*/g, "").replace(/```/g, "");
-  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-  if (jsonMatch) jsonStr = jsonMatch[0];
-  jsonStr = cleanJsonString(jsonStr);
-  try {
-    JSON.parse(jsonStr);
-    return jsonStr;
-  } catch {
-    return null;
+  
+  // Try to find the first complete JSON object
+  let openBraces = 0;
+  let startIdx = -1;
+  let inString = false;
+  let escapeNext = false;
+  
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i];
+    
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') {
+        if (openBraces === 0 && startIdx === -1) {
+          startIdx = i;
+        }
+        openBraces++;
+      } else if (char === '}') {
+        openBraces--;
+        if (openBraces === 0 && startIdx !== -1) {
+          const candidate = jsonStr.substring(startIdx, i + 1);
+          try {
+            JSON.parse(candidate);
+            return candidate;
+          } catch {
+            // Continue searching for valid JSON
+            startIdx = -1;
+          }
+        }
+      }
+    }
   }
+  
+  // Fallback: try to find any {...} pattern
+  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    const candidate = jsonMatch[0];
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {
+      return null;
+    }
+  }
+  
+  return null;
 }
 
 function tryRecoverJson(rawResponse: string): string | null {
@@ -256,21 +309,152 @@ function validateArchitectureStructure(parsed: any): boolean {
     return false;
   }
   
+  for (const node of parsed.nodes) {
+    if (!node.id || typeof node.id !== "string" || node.id.trim() === "") {
+      console.warn("Validation failed: node missing valid id");
+      return false;
+    }
+    if (!node.type || typeof node.type !== "string" || node.type.trim() === "") {
+      console.warn(`Validation failed: node ${node.id} missing valid type`);
+      return false;
+    }
+    if (!node.label || typeof node.label !== "string" || node.label.trim() === "") {
+      console.warn(`Validation failed: node ${node.id} missing valid label`);
+      return false;
+    }
+    if (typeof node.description !== "string") {
+      console.warn(`Validation failed: node ${node.id} missing description string`);
+      return false;
+    }
+    if (typeof node.technology !== "string") {
+      console.warn(`Validation failed: node ${node.id} missing technology string`);
+      return false;
+    }
+    if (!node.category || typeof node.category !== "string" || node.category.trim() === "") {
+      console.warn(`Validation failed: node ${node.id} missing valid category`);
+      return false;
+    }
+    if (!node.position || typeof node.position.x !== "number" || typeof node.position.y !== "number") {
+      console.warn(`Validation failed: node ${node.id} missing valid position coordinates`);
+      return false;
+    }
+  }
+
   const nodeIds = new Set(parsed.nodes.map((n: any) => n.id));
   console.log("Node IDs:", Array.from(nodeIds));
   if (nodeIds.size !== parsed.nodes.length) {
     console.warn("Validation failed: duplicate node IDs");
-    return false; // Duplicate node IDs
+    return false;
   }
   
   for (const edge of parsed.edges) {
-    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
-      console.warn(`Validation failed: edge ${edge.id} references non-existent node (source: ${edge.source}, target: ${edge.target})`);
-      return false; // Edge references non-existent node
+    if (!edge.id || typeof edge.id !== "string" || edge.id.trim() === "") {
+      console.warn("Validation failed: edge missing valid id");
+      return false;
+    }
+    if (!edge.source || typeof edge.source !== "string" || !nodeIds.has(edge.source)) {
+      console.warn(`Validation failed: edge ${edge.id} references non-existent source node: ${edge.source}`);
+      return false;
+    }
+    if (!edge.target || typeof edge.target !== "string" || !nodeIds.has(edge.target)) {
+      console.warn(`Validation failed: edge ${edge.id} references non-existent target node: ${edge.target}`);
+      return false;
+    }
+    if (typeof edge.label !== "string") {
+      console.warn(`Validation failed: edge ${edge.id} missing label string`);
+      return false;
+    }
+    if (typeof edge.type !== "string") {
+      console.warn(`Validation failed: edge ${edge.id} missing type string`);
+      return false;
     }
   }
   
   return true;
+}
+function generateFallbackArchitecture(
+  projectName: string,
+  projectDescription: string,
+  projectType: string,
+  experienceLevel: string,
+  techStack?: any
+): ArchitectureResponse {
+  console.log("Generating fallback architecture");
+  
+  const isMobile = projectType.toLowerCase().includes("mobile");
+  const isSaaS = projectType.toLowerCase().includes("saas");
+  const isEcommerce = projectDescription.toLowerCase().includes("ecommerce") || projectDescription.toLowerCase().includes("e-commerce");
+  const hasAI = projectDescription.toLowerCase().includes("ai") || projectDescription.toLowerCase().includes("machine learning");
+  
+  // Determine complexity
+  let complexity = "simple";
+  if (hasAI || isSaaS || isEcommerce) complexity = "complex";
+  else if (projectDescription.length > 200 || experienceLevel !== "Beginner") complexity = "medium";
+  
+  const nodes: any[] = [];
+  const edges: any[] = [];
+  let edgeId = 0;
+  
+  const addNode = (id: string, type: string, label: string, description: string, technology: string, category: string, x: number, y: number) => {
+    nodes.push({ id, type, label, description, technology, category, position: { x, y } });
+  };
+  
+  const addEdge = (source: string, target: string, label: string, type = "default") => {
+    edges.push({ id: `edge${edgeId++}`, source, target, label, type });
+  };
+  
+  // Frontend
+  const frontendTech = techStack?.frontend?.[0]?.name || (isMobile ? "React Native" : "React + Vite");
+  addNode("frontend", "frontend", "Frontend", "User interface for the application", frontendTech, "frontend", 100, 200);
+  
+  // API Gateway / Backend
+  const backendTech = techStack?.backend?.[0]?.name || "Node.js / Express";
+  addNode("gateway", "service", "API Gateway", "Routes requests to appropriate services", "Nginx / API Gateway", "api", 300, 200);
+  addEdge("frontend", "gateway", "HTTPS / REST");
+  
+  addNode("backend", "service", "Backend Service", "Core business logic and API endpoints", backendTech, "backend", 500, 200);
+  addEdge("gateway", "backend", "Internal API");
+  
+  // Database
+  const dbTech = techStack?.database?.[0]?.name || "PostgreSQL";
+  addNode("database", "database", "Primary Database", "Persistent data storage", dbTech, "database", 700, 200);
+  addEdge("backend", "database", "SQL / ORM");
+  
+  // Cache
+  const cacheTech = techStack?.otherServices?.find((s: any) => s.name.toLowerCase().includes("redis"))?.name || "Redis";
+  addNode("cache", "cache", "Cache Layer", "Caching and session storage", cacheTech, "cache", 700, 400);
+  addEdge("backend", "cache", "Cache");
+  
+  if (hasAI) {
+    const aiTech = techStack?.otherServices?.find((s: any) => s.name.toLowerCase().includes("ai") || s.name.toLowerCase().includes("openai"))?.name || "OpenAI API";
+    addNode("ai", "ai", "AI Service", "Machine learning and AI processing", aiTech, "ai", 500, 500);
+    addEdge("backend", "ai", "API");
+  }
+  
+  if (isSaaS || isEcommerce) {
+    const authTech = techStack?.authentication?.[0]?.name || "JWT / OAuth";
+    addNode("auth", "auth", "Auth Service", "Authentication and authorization", authTech, "authentication", 300, 500);
+    addEdge("gateway", "auth", "Auth");
+    
+    if (isEcommerce) {
+      const paymentTech = techStack?.otherServices?.find((s: any) => s.name.toLowerCase().includes("stripe") || s.name.toLowerCase().includes("payment"))?.name || "Stripe";
+      addNode("payment", "payment", "Payment Service", "Payment processing", paymentTech, "external_service", 500, 400);
+      addEdge("backend", "payment", "API");
+    }
+  }
+  
+  if (complexity === "complex") {
+    const queueTech = techStack?.otherServices?.find((s: any) => s.name.toLowerCase().includes("rabbit") || s.name.toLowerCase().includes("queue"))?.name || "RabbitMQ";
+    addNode("queue", "queue", "Message Queue", "Async task processing", queueTech, "queue", 500, 600);
+    addEdge("backend", "queue", "Async");
+  }
+  
+  const nodesCount = nodes.length;
+  const edgesCount = edges.length;
+  
+  console.log(`Generated fallback architecture with ${nodesCount} nodes and ${edgesCount} edges`);
+  
+  return { nodes, edges };
 }
 
 export const generateArchitecture = async (
@@ -329,7 +513,8 @@ export const generateArchitecture = async (
   let parsed: any;
   let jsonStr: string | null = null;
 
-  jsonStr = tryParseJson(rawResponse);
+  // Try to extract JSON from the response
+  jsonStr = extractJsonFromResponse(rawResponse);
   if (jsonStr) {
     console.log("Parsed AI response directly");
     parsed = JSON.parse(jsonStr);
@@ -349,7 +534,8 @@ export const generateArchitecture = async (
     }
     console.warn("Recovery passed but structure validation failed");
   }
-  console.warn("Recovery failed");
+  console.warn("Recovery failed, attempting fallback architecture...");
 
-  throw new Error("AI returned invalid architecture structure: nodes/edges validation failed");
-};
+  // Fallback: generate a basic architecture based on project type and tech stack
+  return generateFallbackArchitecture(projectName, projectDescription, projectType, experienceLevel, techStack);
+}

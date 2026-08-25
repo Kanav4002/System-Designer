@@ -1,4 +1,4 @@
-import { generateAIResponse } from "./groq.service.js";
+import { generateAIResponse } from "./index.js";
 import { roadmapResponseSchema, type RoadmapResponse } from "../../validators/roadmap.validator.js";
 
 const SYSTEM_PROMPT = `You are an expert project manager. Generate a practical development roadmap as JSON only.

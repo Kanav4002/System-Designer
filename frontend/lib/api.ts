@@ -126,6 +126,22 @@ export const architectureApi = {
     }),
 };
 
+export const chatApi = {
+  sendMessage: (projectId: string, message: string) =>
+    fetchWithAuth<{ success: boolean; data: { message: { role: string; content: string } } }>(`/api/projects/${projectId}/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+
+  getHistory: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; messages: any[] }>(`/api/projects/${projectId}/chat`),
+
+  clearHistory: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; message: string }>(`/api/projects/${projectId}/chat`, {
+      method: 'DELETE',
+    }),
+};
+
 export const healthApi = {
   check: () =>
     fetch(`${API_URL}/api/health`).then((res) => res.json()),

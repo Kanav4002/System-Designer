@@ -4,7 +4,7 @@ export const generateAIResponse = async (
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>
 ): Promise<string> => {
   const completion = await groq.chat.completions.create({
-    model: "openai/gpt-oss-120b",
+    model: "qwen/qwen3.6-27b",
     messages,
     temperature: 0.3,
     max_tokens: 4096,

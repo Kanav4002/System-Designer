@@ -10,6 +10,7 @@ import { useStore } from '@/lib/store';
 import type { Project } from '@/lib/types';
 import { techStackToItems } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { chatApi } from '@/lib/api';
 
 const SUGGESTED_QUESTIONS = [
   'What should I build next?',
@@ -22,62 +23,91 @@ const SUGGESTED_QUESTIONS = [
   'Generate API endpoints.',
 ];
 
-function generateAIResponse(question: string, project: Project): string {
-  const lower = question.toLowerCase();
-  const completedTasks = project.tasks.filter((t) => t.status === 'Completed');
-  const inProgressTasks = project.tasks.filter((t) => t.status === 'In Progress');
-  const nextPhase = project.phases.find((p) => p.status === 'Not Started' || p.status === 'In Progress');
-
-  if (lower.includes('build next') || lower.includes('what should i')) {
-    const nextTasks = project.tasks
-      .filter((t) => t.status === 'Not Started' || t.status === 'In Progress')
-      .slice(0, 3);
-    return `Based on your current progress (${project.progress}% complete), here's what I recommend focusing on next:\n\n${nextTasks.map((t, i) => `${i + 1}. **${t.title}** — ${t.estimatedTime}, ${t.difficulty} difficulty`).join('\n')}\n\nYou're currently in the "${project.currentPhase}" phase. Completing these tasks will advance your progress significantly.`;
+async function sendChatMessage(projectId: string, message: string): Promise<string> {
+  try {
+    const data = await chatApi.sendMessage(projectId, message);
+    return data.data?.message?.content || 'No response received';
+  } catch (error) {
+    console.error('Chat error:', error);
+    return 'Sorry, I encountered an error. Please try again.';
   }
+}
+function Markdown({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const renderedElements: React.ReactNode[] = [];
+  
+  let inList = false;
+  let listItems: React.ReactNode[] = [];
 
-  if (lower.includes('architecture') || lower.includes('explain this')) {
-    const nodes = project.archNodes.map((n) => `• **${n.label}** (${n.type}): ${n.description}`).join('\n');
-    return `Here's an overview of your system architecture:\n\n${nodes}\n\nThe architecture follows a standard pattern: your frontend communicates with the API server, which handles business logic and connects to the database, cache, and external services. ${project.archEdges.length} connections link these components together.`;
-  }
+  const parseInlineMarkdown = (text: string): React.ReactNode[] => {
+    const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={index} className="font-semibold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return <code key={index} className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{part.slice(1, -1)}</code>;
+      }
+      return part;
+    });
+  };
 
-  if (lower.includes('redis') || lower.includes('cache')) {
-    const redis = techStackToItems(project.techStack).find((t) => t.technology === 'Redis');
-    if (redis) {
-      return `**Why Redis?**\n\n${redis.reason}\n\nRedis serves as an in-memory data store in your architecture. It's particularly valuable for this project because:\n\n• **Session management** — fast token validation\n• **Caching hot queries** — reduces database load\n• **Rate limiting** — protects your API from abuse\n• **Real-time features** — pub/sub for live updates\n\nAlternatives include ${redis.alternatives.join(', ')}, but Redis is the most battle-tested choice.`;
+  const flushList = (key: number) => {
+    if (listItems.length > 0) {
+      renderedElements.push(
+        <ul key={`list-${key}`} className="list-disc pl-6 space-y-1 my-2 text-sm">
+          {listItems}
+        </ul>
+      );
+      listItems = [];
+      inList = false;
     }
-    return `Redis isn't currently in your tech stack. Would you like me to explain when you might need it?`;
-  }
+  };
 
-  if (lower.includes('generate task') || lower.includes('tasks for')) {
-    return `Here are some tasks I'd suggest for the next phase:\n\n1. **Set up database migrations** — Create initial schema migrations (4h, Medium)\n2. **Implement CRUD API endpoints** — Build REST endpoints for core entities (8h, Hard)\n3. **Add input validation** — Validate all API requests with proper error handling (3h, Medium)\n4. **Write API integration tests** — Test endpoints with real database (6h, Medium)\n\nYou can add these directly from the Tasks page.`;
-  }
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('### ')) {
+      flushList(index);
+      renderedElements.push(
+        <h4 key={index} className="text-sm font-semibold mt-4 mb-2">
+          {parseInlineMarkdown(trimmed.slice(4))}
+        </h4>
+      );
+    } else if (trimmed.startsWith('## ')) {
+      flushList(index);
+      renderedElements.push(
+        <h3 key={index} className="text-base font-semibold mt-4 mb-2">
+          {parseInlineMarkdown(trimmed.slice(3))}
+        </h3>
+      );
+    } else if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      inList = true;
+      listItems.push(
+        <li key={`li-${index}`} className="leading-relaxed text-sm">
+          {parseInlineMarkdown(trimmed.slice(2))}
+        </li>
+      );
+    } else if (trimmed === '') {
+      flushList(index);
+      renderedElements.push(<div key={`space-${index}`} className="h-2" />);
+    } else {
+      if (inList) {
+        // If we are currently in list mode but this line doesn't start with * or -,
+        // let's flush the list unless it's empty.
+        flushList(index);
+      }
+      renderedElements.push(
+        <p key={index} className="text-sm leading-relaxed mb-2">
+          {parseInlineMarkdown(line)}
+        </p>
+      );
+    }
+  });
 
-  if (lower.includes('database') || lower.includes('improve')) {
-    return `Here are some ways to improve your database design:\n\n• **Add indexes** on frequently queried columns (foreign keys, search fields)\n• **Use connection pooling** to handle concurrent requests efficiently\n• **Implement soft deletes** instead of hard deletes for audit trails\n• **Add database constraints** (unique, not null, check) at the schema level\n• **Consider read replicas** if you expect heavy read traffic\n• **Set up automated backups** with point-in-time recovery\n\nYour current database choice (${techStackToItems(project.techStack).find((t) => t.category === 'Database')?.technology || 'PostgreSQL'}) supports all of these patterns well.`;
-  }
+  flushList(lines.length);
 
-  if (lower.includes('missing') || lower.includes('what am i')) {
-    const hasAuth = techStackToItems(project.techStack).some((t) => t.technology.toLowerCase().includes('auth') || project.archNodes.some((n) => n.type === 'Auth Service'));
-    const hasPayment = techStackToItems(project.techStack).some((t) => t.technology === 'Stripe');
-    const hasMonitoring = project.tasks.some((t) => t.title.toLowerCase().includes('monitor'));
-    const missing: string[] = [];
-    if (!hasAuth) missing.push('Authentication service');
-    if (!hasPayment && project.description.toLowerCase().includes('payment')) missing.push('Payment integration');
-    if (!hasMonitoring) missing.push('Monitoring and error tracking');
-    missing.push('API rate limiting', 'Environment variable management', 'Logging strategy');
-
-    return `After reviewing your project, here are some things you might be missing:\n\n${missing.map((m, i) => `${i + 1}. ${m}`).join('\n')}\n\nWould you like me to help you plan any of these?`;
-  }
-
-  if (lower.includes('simplify')) {
-    return `To simplify your architecture, consider:\n\n• **Merge the API Gateway and API Server** if traffic is low — one service is simpler to maintain\n• **Remove the cache layer** initially — add it only when you have performance issues\n• **Use a managed database** (like Supabase) instead of self-hosting PostgreSQL\n• **Start with a monolith** rather than microservices — split later only if needed\n\nRemember: the best architecture is the simplest one that solves your problem. You can always add complexity when scale demands it.`;
-  }
-
-  if (lower.includes('api endpoint') || lower.includes('generate api')) {
-    return `Here are the key API endpoints for your project:\n\n**Authentication**\n• \`POST /api/auth/register\` — Create a new account\n• \`POST /api/auth/login\` — Log in and receive token\n• \`POST /api/auth/logout\` — Invalidate session\n• \`POST /api/auth/reset-password\` — Request password reset\n\n**Core Resources**\n• \`GET /api/items\` — List with pagination and filters\n• \`POST /api/items\` — Create new item\n• \`GET /api/items/:id\` — Get single item\n• \`PUT /api/items/:id\` — Update item\n• \`DELETE /api/items/:id\` — Delete item\n\n**User Profile**\n• \`GET /api/profile\` — Get current user\n• \`PUT /api/profile\` — Update profile\n\nAll endpoints should use JWT authentication and return JSON with consistent error formats.`;
-  }
-
-  return `Great question! Based on your project "${project.name}", you currently have ${project.tasks.length} tasks across ${project.phases.length} phases, with ${completedTasks.length} completed and ${inProgressTasks.length} in progress. Your overall progress is ${project.progress}%.\n\nCould you be more specific about what you'd like to know? You can ask about the tech stack, roadmap, architecture, or any specific aspect of the project.`;
+  return <div className="space-y-1">{renderedElements}</div>;
 }
 
 export default function AssistantPage({
@@ -109,12 +139,16 @@ export default function AssistantPage({
     setInput('');
     setThinking(true);
 
-    setTimeout(() => {
-      const response = generateAIResponse(content, project);
+    sendChatMessage(id, content).then((response) => {
       addChatMessage(id, 'assistant', response);
       setThinking(false);
-    }, 800 + Math.random() * 600);
+    }).catch(() => {
+      addChatMessage(id, 'assistant', 'Sorry, I encountered an error. Please try again.');
+      setThinking(false);
+    });
   };
+
+  if (!project) return notFound();
 
   return (
     <div className="flex h-full flex-col">
@@ -154,7 +188,11 @@ export default function AssistantPage({
                   msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card'
                 )}
               >
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                {msg.role === 'assistant' ? (
+                  <Markdown content={msg.content} />
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                )}
               </Card>
             </div>
           ))}
