@@ -44,7 +44,10 @@ Experience Level: ${experienceLevel}
 
 Provide a complete project analysis as JSON.`;
 
-  const rawResponse = await generateAIResponse(SYSTEM_PROMPT, userPrompt);
+  const rawResponse = await generateAIResponse([
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: userPrompt },
+  ]);
 
   const parsedResponse = parseAiJsonResponse(rawResponse);
   if (!parsedResponse) {

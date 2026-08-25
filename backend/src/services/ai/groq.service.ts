@@ -1,21 +1,11 @@
 import { groq } from "../../config/groq.js";
 
 export const generateAIResponse = async (
-  systemPrompt: string,
-  userPrompt: string
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>
 ): Promise<string> => {
   const completion = await groq.chat.completions.create({
     model: "openai/gpt-oss-120b",
-    messages: [
-      {
-        role: "system",
-        content: systemPrompt,
-      },
-      {
-        role: "user",
-        content: userPrompt,
-      },
-    ],
+    messages,
     temperature: 0.3,
     max_tokens: 4096,
   });

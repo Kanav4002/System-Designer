@@ -86,7 +86,10 @@ Estimated Phases: ${analysis.estimatedPhases}`;
 
   contextPrompt += `\n\nProvide a complete technology stack recommendation as JSON.`;
 
-  const rawResponse = await generateAIResponse(SYSTEM_PROMPT, contextPrompt);
+  const rawResponse = await generateAIResponse([
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: contextPrompt },
+  ]);
 
   const parsedResponse = parseAiJsonResponse(rawResponse);
   if (!parsedResponse) {

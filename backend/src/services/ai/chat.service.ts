@@ -277,7 +277,7 @@ export async function sendMessage(
     { role: "user" as const, content: userMessage },
   ];
 
-  const aiResponse = await generateAIResponse(systemPrompt, userMessage);
+  const aiResponse = await generateAIResponse(messages);
 
   let chat = await Chat.findOne({ projectId, userId });
   if (!chat) {

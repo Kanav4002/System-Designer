@@ -145,7 +145,10 @@ async function generateWithRetry(prompt: string, maxRetries = 5): Promise<string
     try {
       console.log(`Attempting AI generation (attempt ${attempt + 1}/${maxRetries + 1})...`);
       const result = await Promise.race([
-        generateAIResponse(SYSTEM_PROMPT, prompt),
+        generateAIResponse([
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ]),
         new Promise<string>((_, reject) => 
           setTimeout(() => reject(new Error("AI request timeout after 60s")), 60000)
         )

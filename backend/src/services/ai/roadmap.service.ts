@@ -227,7 +227,10 @@ async function generateWithRetry(prompt: string, maxRetries = 5): Promise<string
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await generateAIResponse(SYSTEM_PROMPT, prompt);
+      return await generateAIResponse([
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ]);
     } catch (error: any) {
       const isRateLimit = error?.status === 429 || error?.error?.code === "rate_limit_exceeded";
       
