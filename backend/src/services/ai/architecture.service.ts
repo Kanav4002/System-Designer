@@ -143,8 +143,17 @@ async function generateWithRetry(prompt: string, maxRetries = 5): Promise<string
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await generateAIResponse(SYSTEM_PROMPT, prompt);
+      console.log(`Attempting AI generation (attempt ${attempt + 1}/${maxRetries + 1})...`);
+      const result = await Promise.race([
+        generateAIResponse(SYSTEM_PROMPT, prompt),
+        new Promise<string>((_, reject) => 
+          setTimeout(() => reject(new Error("AI request timeout after 60s")), 60000)
+        )
+      ]);
+      console.log("AI generation successful");
+      return result;
     } catch (error: any) {
+      console.error(`Attempt ${attempt + 1} failed:`, error.message);
       const isRateLimit = error?.status === 429 || error?.error?.code === "rate_limit_exceeded";
       
       if (isRateLimit && attempt < maxRetries) {
@@ -236,19 +245,24 @@ function tryRecoverJson(rawResponse: string): string | null {
 
 function validateArchitectureStructure(parsed: any): boolean {
   if (!parsed.nodes || !Array.isArray(parsed.nodes) || parsed.nodes.length === 0) {
+    console.warn("Validation failed: no nodes or empty array");
     return false;
   }
   if (!parsed.edges || !Array.isArray(parsed.edges)) {
+    console.warn("Validation failed: no edges or not array");
     return false;
   }
   
   const nodeIds = new Set(parsed.nodes.map((n: any) => n.id));
+  console.log("Node IDs:", Array.from(nodeIds));
   if (nodeIds.size !== parsed.nodes.length) {
+    console.warn("Validation failed: duplicate node IDs");
     return false; // Duplicate node IDs
   }
   
   for (const edge of parsed.edges) {
     if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
+      console.warn(`Validation failed: edge ${edge.id} references non-existent node (source: ${edge.source}, target: ${edge.target})`);
       return false; // Edge references non-existent node
     }
   }

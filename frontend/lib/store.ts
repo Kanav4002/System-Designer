@@ -13,7 +13,7 @@ import type {
   PhaseStatus,
 } from './types';
 import { techStackToItems } from './types';
-import { projectApi, analysisApi, techStackApi, roadmapApi } from './api';
+import { projectApi, analysisApi, techStackApi, roadmapApi, architectureApi } from './api';
 
 interface AppState {
   projects: Project[];
@@ -37,6 +37,8 @@ interface AppState {
   generateTechStack: (projectId: string) => Promise<void>;
   fetchRoadmap: (projectId: string) => Promise<void>;
   generateRoadmap: (projectId: string) => Promise<void>;
+  fetchArchitecture: (projectId: string) => Promise<void>;
+  generateArchitecture: (projectId: string) => Promise<void>;
 
   updateTaskStatus: (projectId: string, taskId: string, status: TaskStatus) => void;
   updateTask: (projectId: string, taskId: string, updates: Partial<Task>) => void;
@@ -340,6 +342,69 @@ export const useStore = create<AppState>()(
           }));
         } catch (error) {
           console.error('Failed to generate roadmap:', error);
+          throw error;
+        }
+      },
+
+      fetchArchitecture: async (projectId) => {
+        try {
+          const response = await architectureApi.get(projectId);
+          const architecture = response.architecture;
+          if (!architecture) return;
+
+          const archNodes: ArchNodeData[] = architecture.nodes.map((node: any) => ({
+            label: node.id,
+            type: node.category.charAt(0).toUpperCase() + node.category.slice(1),
+            description: node.description,
+            technology: node.technology,
+            responsibilities: [node.label],
+          }));
+
+          const archEdges: { id: string; source: string; target: string }[] = architecture.edges.map((edge: any) => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+          }));
+
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, archNodes, archEdges } : p
+            ),
+          }));
+        } catch (error: any) {
+          if (error.message?.includes('404') || error.message?.includes('not found')) {
+            return;
+          }
+          console.error('Failed to fetch architecture:', error);
+        }
+      },
+
+      generateArchitecture: async (projectId) => {
+        try {
+          const response = await architectureApi.generate(projectId);
+          const architecture = response.architecture;
+
+          const archNodes: ArchNodeData[] = architecture.nodes.map((node: any) => ({
+            label: node.id,
+            type: node.category.charAt(0).toUpperCase() + node.category.slice(1),
+            description: node.description,
+            technology: node.technology,
+            responsibilities: [node.label],
+          }));
+
+          const archEdges: { id: string; source: string; target: string }[] = architecture.edges.map((edge: any) => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+          }));
+
+          set((state) => ({
+            projects: state.projects.map((p) =>
+              p.id === projectId ? { ...p, archNodes, archEdges } : p
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to generate architecture:', error);
           throw error;
         }
       },

@@ -110,6 +110,22 @@ export const roadmapApi = {
     }),
 };
 
+export const architectureApi = {
+  generate: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; architecture: any }>(`/api/projects/${projectId}/architecture/generate`, {
+      method: 'POST',
+    }),
+
+  get: (projectId: string) =>
+    fetchWithAuth<{ success: boolean; architecture: any }>(`/api/projects/${projectId}/architecture`),
+
+  update: (projectId: string, data: { nodes?: any[]; edges?: any[] }) =>
+    fetchWithAuth<{ success: boolean; architecture: any }>(`/api/projects/${projectId}/architecture`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
+
 export const healthApi = {
   check: () =>
     fetch(`${API_URL}/api/health`).then((res) => res.json()),
