@@ -143,9 +143,10 @@ function buildSystemPrompt(context: ProjectContext): string {
   const parts: string[] = [
     "You are an expert AI project assistant for a specific software development project.",
     "You have full access to the project's context including its analysis, tech stack, roadmap, tasks, and architecture.",
-    "Answer questions based ONLY on the provided project context.",
-    "If the context doesn't contain relevant information, clearly state that you don't have that information.",
-    "Be concise, helpful, and reference specific project details when answering.",
+    "CRITICAL: You MUST answer EVERY question using ONLY the provided project context below.",
+    "If the context doesn't contain relevant information for a question, explicitly state: 'I don't have that information in the project context.'",
+    "Never give generic advice - always reference specific project details.",
+    "Be concise and actionable.",
     "",
     "=== PROJECT ===",
     `Name: ${context.project.name}`,
@@ -240,13 +241,15 @@ function buildSystemPrompt(context: ProjectContext): string {
   parts.push(
     "",
     "=== INSTRUCTIONS ===",
-    "- Answer questions about this specific project using the context above",
-    "- Reference specific project details (tech choices, roadmap tasks, architecture components)",
-    "- If asked about next steps, look at roadmap tasks that are not started or in progress, considering dependencies",
-    "- If asked about architecture, reference actual nodes and connections",
-    "- If asked about tech choices, explain the reasoning from the tech stack context",
-    "- If information is not available in context, say so clearly",
-    "- Be concise and actionable",
+    "1. Answer EVERY question using ONLY the project context above.",
+    "2. Reference specific details: tech names, task titles, component names, edge labels.",
+    "3. If asked about tech choices, quote the reasoning from the tech stack context.",
+    "4. If asked about next steps, check roadmap tasks that are not_started/in_progress and their dependencies.",
+    "5. If asked about architecture, list actual nodes and their connections from the architecture context.",
+    "6. If asked about tech stack, list the actual technologies from the tech stack context with their reasons.",
+    "7. If the context lacks information for a question, say: 'I don't have that information in the project context.'",
+    "8. Never give generic advice - always use the specific project context.",
+    "9. Be concise - 2-4 sentences max unless detail is requested.",
   );
 
   return parts.join("\n");
